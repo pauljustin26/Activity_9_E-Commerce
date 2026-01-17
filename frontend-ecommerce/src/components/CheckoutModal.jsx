@@ -7,6 +7,12 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
 
   if (!isOpen) return null;
 
+  // NEW: Handle Shipping Step Validation
+  const handleShippingSubmit = (e) => {
+    e.preventDefault(); // This triggers browser validation on 'required' fields
+    setStep(2); // Only proceed if validation passes
+  };
+
   const handlePay = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -38,20 +44,38 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
             </div>
 
             {step === 1 ? (
-                <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                // WRAPPED IN FORM FOR VALIDATION
+                <form onSubmit={handleShippingSubmit} className="space-y-6 animate-in slide-in-from-right duration-300">
                     <h3 className="font-bold text-black flex items-center gap-3 text-sm uppercase tracking-wide border-b border-black pb-2">
                         <MapPin size={18} className="text-[#E60033]"/> Shipping Address
                     </h3>
+                    
                     <div className="grid grid-cols-2 gap-4">
-                        <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none col-span-2 placeholder:text-[#ccc]" placeholder="FULL NAME" />
-                        <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none col-span-2 placeholder:text-[#ccc]" placeholder="STREET ADDRESS" />
-                        <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="CITY" />
-                        <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="ZIP CODE" />
+                        <div className="col-span-2">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">Full Name <span className="text-[#E60033]">*</span></label>
+                            <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="ENTER FULL NAME" required />
+                        </div>
+                        
+                        <div className="col-span-2">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">Street Address <span className="text-[#E60033]">*</span></label>
+                            <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="ENTER STREET ADDRESS" required />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">City <span className="text-[#E60033]">*</span></label>
+                            <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="ENTER CITY" required />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">Zip Code <span className="text-[#E60033]">*</span></label>
+                            <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="ZIP CODE" required />
+                        </div>
                     </div>
-                    <button onClick={() => setStep(2)} className="w-full bg-black text-white py-4 font-bold uppercase tracking-widest text-xs hover:bg-[#E60033] transition-colors mt-6 rounded-none">
+
+                    <button type="submit" className="w-full bg-black text-white py-4 font-bold uppercase tracking-widest text-xs hover:bg-[#E60033] transition-colors mt-6 rounded-none">
                         Continue to Payment
                     </button>
-                </div>
+                </form>
             ) : (
                 <form onSubmit={handlePay} className="space-y-6 animate-in slide-in-from-right duration-300">
                     <h3 className="font-bold text-black flex items-center gap-3 text-sm uppercase tracking-wide border-b border-black pb-2">
@@ -63,14 +87,24 @@ export default function CheckoutModal({ isOpen, onClose, cart, total, onConfirm 
                             <span className="text-xs font-bold uppercase tracking-wide text-[#767676]">Total Amount</span>
                             <span className="font-bold text-xl text-[#E60033]">${total.toFixed(2)}</span>
                         </div>
-                        <p className="text-[10px] uppercase text-[#999] tracking-wider">Sandbox Mode: No Charge</p>
+                        {/* <p className="text-[10px] uppercase text-[#999] tracking-wider">Sandbox Mode: No Charge</p> */}
                     </div>
 
                     <div className="space-y-4">
-                        <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="CARD NUMBER" maxLength={19} required />
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">Card Number <span className="text-[#E60033]">*</span></label>
+                            <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="0000 0000 0000 0000" maxLength={19} required />
+                        </div>
+                        
                         <div className="grid grid-cols-2 gap-4">
-                            <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="MM / YY" required />
-                            <input className="border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="CVC" maxLength={3} required />
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">Expiry Date <span className="text-[#E60033]">*</span></label>
+                                <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="MM / YY" required />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-[#767676]">CVC <span className="text-[#E60033]">*</span></label>
+                                <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none placeholder:text-[#ccc]" placeholder="123" maxLength={3} required />
+                            </div>
                         </div>
                     </div>
 

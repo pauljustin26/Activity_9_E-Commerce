@@ -45,8 +45,8 @@ export default function ProductCard({ product, onAdd }) {
         <h3 className="font-medium text-[#1a1a1a] text-sm group-hover:underline decoration-1 underline-offset-2">{product.name}</h3>
         
         <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-bold text-lg text-[#E60033]">${product.price.toFixed(2)}</span>
-            <span className="text-xs text-[#999] line-through">${(product.price * 1.2).toFixed(2)}</span>
+            <span className="font-bold text-lg text-[#E60033]">₱{product.price.toFixed(2)}</span>
+            <span className="text-xs text-[#999] line-through">₱{(product.price * 1.2).toFixed(2)}</span>
         </div>
       </div>
     </div>

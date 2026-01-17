@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { X, ArrowRight } from "lucide-react";
+import { X, ArrowRight, Eye, EyeOff } from "lucide-react"; // Import Eye icons
 import { login, register } from "../services/api";
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false); // State for password visibility
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
@@ -81,13 +82,22 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
             <div>
                 <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-[#767676]">Password</label>
-                <input 
-                    type="password" 
-                    className="w-full bg-white border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none transition-colors placeholder:text-[#ccc]"
-                    placeholder="ENTER YOUR PASSWORD" 
-                    required
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                />
+                <div className="relative">
+                    <input 
+                        type={showPassword ? "text" : "password"} 
+                        className="w-full bg-white border border-[#ccc] p-3 pr-10 text-sm focus:outline-none focus:border-black rounded-none transition-colors placeholder:text-[#ccc]"
+                        placeholder="ENTER YOUR PASSWORD" 
+                        required
+                        onChange={e => setFormData({...formData, password: e.target.value})}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] hover:text-black transition-colors"
+                    >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                </div>
             </div>
           </div>
 
