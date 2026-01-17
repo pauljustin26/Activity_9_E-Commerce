@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getProducts, createOrder, getCart, syncCart } from "./services/api";
 import Navbar from "./components/Navbar";
 import ProductCard from "./components/ProductCard";
@@ -11,12 +11,15 @@ import { ArrowRight } from "lucide-react";
 export default function App() {
   const [products, setProducts] = useState([]);
   const [user, setUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   
-  // Cart State
+  // Cart State & Safety Flag
   const [cart, setCart] = useState([]);
-  // CRITICAL FLAG: Prevents saving an empty cart to DB before the DB has finished loading
   const [isCartLoaded, setIsCartLoaded] = useState(false); 
   
+  // Refs for Scrolling
+  const collectionRef = useRef(null);
+
   // Modals
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -24,31 +27,29 @@ export default function App() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // ------------------------------------------------------------------
-  // 1. INITIALIZATION LOGIC
+  // 1. INITIALIZATION
   // ------------------------------------------------------------------
   useEffect(() => {
-    // 1a. Load Products
+    // Load Products
     getProducts().then(setProducts);
 
-    // 1b. Check User Session
+    // Check User Session
     const savedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
 
     if (savedUser && token) {
         setUser(JSON.parse(savedUser));
-        // If logged in, we MUST fetch from DB. 
-        // We do NOT set isCartLoaded(true) yet. We wait for fetchDbCart.
+        // Logged in? Fetch DB Cart.
         fetchDbCart(); 
     } else {
-        // If guest, load from LocalStorage immediately
+        // Guest? Load from LocalStorage.
         const savedGuestCart = localStorage.getItem("cart_guest");
         if (savedGuestCart) setCart(JSON.parse(savedGuestCart));
-        // Guests are ready immediately
+        // Guest is ready immediately
         setIsCartLoaded(true); 
     }
   }, []);
 
-  // Helper: Fetch Cart from Database
   const fetchDbCart = async () => {
     try {
         const dbCart = await getCart();
@@ -58,33 +59,35 @@ export default function App() {
     } catch (err) {
         console.error("Failed to load DB cart", err);
     } finally {
-        // CRITICAL: Only allow syncing AFTER we have attempted to load data
+        // Allow syncing only AFTER we tried to load data
         setIsCartLoaded(true);
     }
   };
 
   // ------------------------------------------------------------------
-  // 2. SYNC LOGIC (The "Save" Mechanism)
+  // 2. SYNC LOGIC (Save Cart)
   // ------------------------------------------------------------------
   useEffect(() => {
-    // SECURITY CHECK: If the app is still loading the cart, DO NOT SAVE.
-    // This prevents wiping the database with an empty array on page reload.
-    if (!isCartLoaded) return; 
+    if (!isCartLoaded) return; // Wait for initial load to finish
 
     if (user) {
-        // If user, sync to MongoDB in the background
+        // Silent Background Sync to MongoDB
         syncCart(cart).catch(err => console.error("Sync failed", err));
     } else {
-        // If guest, sync to LocalStorage
+        // Sync to LocalStorage
         localStorage.setItem("cart_guest", JSON.stringify(cart));
     }
   }, [cart, user, isCartLoaded]); 
 
   // ------------------------------------------------------------------
-  // 3. CART ACTIONS (Optimistic Updates)
+  // 3. CART ACTIONS
   // ------------------------------------------------------------------
   const addToCart = (product) => {
-    // Updates UI immediately. The useEffect above handles the saving.
+    if (!user) { 
+        setIsAuthOpen(true); 
+        return; 
+    }
+
     setCart(prev => {
       const existing = prev.find(p => p._id === product._id);
       if (existing) {
@@ -107,35 +110,42 @@ export default function App() {
   };
 
   // ------------------------------------------------------------------
-  // 4. AUTH HANDLERS
+  // 4. VIEW & FILTER HANDLERS
+  // ------------------------------------------------------------------
+  const handleViewAll = () => {
+    setSearchTerm(""); // Reset Search
+    if (collectionRef.current) {
+        // Smooth scroll to top of list
+        collectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // ------------------------------------------------------------------
+  // 5. AUTH HANDLERS
   // ------------------------------------------------------------------
   const handleLoginSuccess = async (userData) => {
-    // 1. Capture current guest items before switching user
     const guestCart = [...cart];
-    
-    // 2. Switch User
     setUser(userData);
     setIsAuthOpen(false);
     
-    // 3. Pause Syncing while we merge (Safety Lock)
+    // Pause syncing during merge
     setIsCartLoaded(false);
 
     try {
-        // 4. Fetch the User's DB Cart
         const dbCart = await getCart();
-        
-        // 5. Merge Strategy:
-        // If guest has items, they override DB (or merge). 
-        // For simplicity: If guest cart has items, keep them. If empty, load DB cart.
+        // Merge Strategy: Guest items take priority
         if (guestCart.length > 0) {
-            setCart(guestCart); // This will eventually overwrite DB with Guest items
+            setCart(guestCart); 
         } else if (Array.isArray(dbCart)) {
             setCart(dbCart);
         }
     } catch (error) {
         console.error("Merge error", error);
     } finally {
-        // 6. Resume Syncing
         setIsCartLoaded(true);
     }
   };
@@ -144,25 +154,23 @@ export default function App() {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    
-    // Clear view and reset to guest mode
     setCart([]); 
     setIsCartLoaded(true); 
   };
 
   // ------------------------------------------------------------------
-  // 5. CHECKOUT LOGIC
+  // 6. CHECKOUT LOGIC
   // ------------------------------------------------------------------
   const initiateCheckout = () => { setIsCartOpen(false); setIsCheckoutOpen(true); };
   
   const finalizeOrder = async () => {
     const orderData = { customerName: user.name, items: cart.map(i => ({ productId: i._id, quantity: i.quantity })) };
     await createOrder(orderData);
-    setCart([]); setIsCheckoutOpen(false); setShowSuccess(true); loadProducts();
+    setCart([]); setIsCheckoutOpen(false); setShowSuccess(true);
+    getProducts().then(setProducts);
   };
 
   return (
-    // UNIQLO STYLE: White BG, Black Text, No Smoothing
     <div className="min-h-screen bg-white font-sans text-[#1a1a1a]">
       
       <Navbar 
@@ -171,46 +179,51 @@ export default function App() {
         user={user} 
         onLogout={handleLogout}
         onLogin={() => setIsAuthOpen(true)}
+        onSearch={setSearchTerm}
       />
       
-      {/* HERO SECTION */}
-      <section className="relative pt-32 pb-16 px-4 md:px-12 max-w-400 mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-[#e0e0e0]">
-            <div className="bg-[#E60033] p-12 md:p-24 flex flex-col justify-center text-white">
-                <h2 className="text-sm font-bold tracking-widest uppercase mb-4">New Collection</h2>
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-6">
-                    SIMPLE MADE<br/>BETTER.
-                </h1>
-                <p className="text-lg opacity-90 max-w-md leading-relaxed mb-8">
-                    Thoughtful design for everyday life. High quality, functional, and affordable.
-                </p>
-                <button className="bg-white text-[#E60033] px-8 py-4 text-sm font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors w-fit">
-                    View Lookbook
-                </button>
-            </div>
-            <div className="bg-gray-100 h-96 md:h-auto flex items-center justify-center relative overflow-hidden group">
-                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center grayscale group-hover:grayscale-0 transition-all duration-700" />
-            </div>
-        </div>
-      </section>
-
-      {/* PRODUCTS GRID */}
-      <main className="max-w-400 mx-auto px-4 md:px-12 pb-24">
+      {/* 1. COLLECTION SECTION (Top) */}
+      <main ref={collectionRef} className="max-w-400 mx-auto px-4 md:px-12 pt-16 pb-24 scroll-mt-24">
         <div className="flex items-end justify-between mb-8 border-b border-black pb-4">
-            <h2 className="text-3xl font-bold text-black tracking-tighter uppercase">Weekly Arrivals</h2>
-            <button className="flex items-center gap-2 text-xs font-bold text-[#767676] hover:text-[#E60033] uppercase tracking-wider transition-colors">
-                View All Items <ArrowRight size={14} />
-            </button>
+            <h2 className="text-3xl font-bold text-black tracking-tighter uppercase">
+                {searchTerm ? `Results for "${searchTerm}"` : "Collection"}
+            </h2>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-          {products.map((p, idx) => (
-            <div key={p._id} className="animate-in fade-in duration-700" style={{ animationDelay: `${idx * 50}ms` }}>
-                <ProductCard product={p} onAdd={addToCart} />
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map((p, idx) => (
+                <div key={p._id} className="animate-in fade-in duration-700" style={{ animationDelay: `${idx * 50}ms` }}>
+                    <ProductCard product={p} onAdd={addToCart} />
+                </div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center text-[#999]">
+                <p>No products found matching your search.</p>
+                <button onClick={handleViewAll} className="mt-4 text-[#E60033] font-bold underline">Clear Search</button>
             </div>
-          ))}
+          )}
         </div>
       </main>
+
+      {/* 2. HERO / BRANDING SECTION (Bottom) */}
+      <section className="relative py-16 px-4 md:px-12 max-w-400 mx-auto border-t border-[#e0e0e0]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-[#e0e0e0]">
+            
+            <div className="bg-[#E60033] p-12 md:p-24 flex flex-col justify-center text-white">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-6">
+                    TACTILE<br/>PRECISION.
+                </h1>
+                <p className="text-lg opacity-90 max-w-md leading-relaxed">
+                    Elevate your workflow with high-performance mechanical keyboards and desk essentials. Engineered for speed, comfort, and aesthetics.
+                </p>
+            </div>
+            
+            <div className="bg-gray-100 h-96 md:h-auto flex items-center justify-center relative overflow-hidden group">
+                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1595225476474-87563907a212?q=80&w=2071&auto=format&fit=crop')] bg-cover bg-center grayscale group-hover:grayscale-0 transition-all duration-700" />
+            </div>
+        </div>
+      </section>
 
       {/* FOOTER */}
       <footer className="bg-[#f5f5f5] pt-16 pb-8 border-t border-[#e0e0e0]">
@@ -232,16 +245,9 @@ export default function App() {
                         <li><a href="#" className="hover:underline">Order Status</a></li>
                     </ul>
                 </div>
-                <div className="md:col-span-2">
-                    <h3 className="font-bold mb-4 uppercase">Newsletter</h3>
-                    <div className="flex gap-0">
-                        <input className="bg-white border border-[#ccc] px-4 py-3 w-full focus:outline-none focus:border-black rounded-none" placeholder="Enter your email address" />
-                        <button className="bg-black text-white px-8 py-3 font-bold uppercase text-xs tracking-widest hover:bg-[#E60033] transition-colors rounded-none">Subscribe</button>
-                    </div>
-                </div>
             </div>
-            <div className="text-xs text-[#999] text-center border-t border-[#e0e0e0] pt-8">
-                <p>COPYRIGHT © LOTUS CO., LTD. ALL RIGHTS RESERVED.</p>
+            <div className="text-xs text-[#999] text-center">
+                <p>COPYRIGHT © LOTUS ALL RIGHTS RESERVED 2026.</p>
             </div>
         </div>
       </footer>

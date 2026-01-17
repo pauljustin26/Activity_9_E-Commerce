@@ -9,8 +9,14 @@ export const getProducts = async () => {
 export const createProduct = async (productData) => {
   await fetch(`${API_URL}/products`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(productData),
+    body: productData, 
+  });
+};
+
+export const updateProduct = async (id, productData) => {
+  await fetch(`${API_URL}/products/${id}`, {
+    method: "PUT",
+    body: productData,
   });
 };
 
@@ -18,14 +24,12 @@ export const deleteProduct = async (id) => {
   await fetch(`${API_URL}/products/${id}`, { method: "DELETE" });
 };
 
-// --- NEW: Orders (This was likely missing) ---
 export const getOrders = async () => {
   try {
-    const res = await fetch("http://localhost:3000/orders");
+    const res = await fetch(`${API_URL}/orders`);
     if (!res.ok) throw new Error("Failed");
     return res.json();
   } catch (error) {
-    return []; // Use empty array to prevent crash
+    return []; 
   }
 };
-

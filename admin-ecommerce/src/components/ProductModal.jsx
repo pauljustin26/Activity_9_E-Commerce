@@ -1,36 +1,89 @@
-import { useState, useEffect } from "react"; // Import useEffect
-import { X, Image as ImageIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Image as ImageIcon, Upload } from "lucide-react";
 
-export default function ProductModal({ isOpen, onClose, onSubmit }) {
-  const [form, setForm] = useState({ name: "", price: "", stock: "", description: "", imageUrl: "" });
-  const [imageError, setImageError] = useState(false); // Error state
+export default function ProductModal({ isOpen, onClose, onSubmit, initialData }) {
+  // 1. State for text inputs
+  const [form, setForm] = useState({ name: "", price: "", stock: "", description: "" });
+  // 2. State for the existing image URL (from DB)
+  const [existingImageUrl, setExistingImageUrl] = useState("");
+  // 3. State for the NEW file selected by user
+  const [selectedFile, setSelectedFile] = useState(null);
+  // 4. State for the preview URL of the new file
+  const [previewUrl, setPreviewUrl] = useState("");
+  
+  const [imageError, setImageError] = useState(false);
 
-  // Reset error when URL changes
+  // Reset states when opening modal or changing initialData
   useEffect(() => {
+    if (initialData) {
+        setForm({
+            name: initialData.name,
+            price: initialData.price,
+            stock: initialData.stock,
+            description: initialData.description || ""
+        });
+        setExistingImageUrl(initialData.imageUrl || "");
+    } else {
+        setForm({ name: "", price: "", stock: "", description: "" });
+        setExistingImageUrl("");
+    }
+    // Always clear new selections on open
+    setSelectedFile(null);
+    setPreviewUrl("");
     setImageError(false);
-  }, [form.imageUrl]);
+  }, [initialData, isOpen]);
 
-  if (!isOpen) return null;
+  // Handle file selection
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      // Create a temporary local URL for immediate preview
+      setPreviewUrl(URL.createObjectURL(file));
+      setImageError(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ ...form, price: Number(form.price), stock: Number(form.stock) });
-    setForm({ name: "", price: "", stock: "", description: "", imageUrl: "" });
+
+    // 1. Create FormData object
+    const formData = new FormData();
+    formData.append("name", form.name);
+    formData.append("price", form.price);
+    formData.append("stock", form.stock);
+    formData.append("description", form.description);
+
+    // 2. Only append the 'image' field if a NEW file was selected
+    if (selectedFile) {
+        formData.append("image", selectedFile); 
+    }
+
+    // 3. Send FormData up to App.jsx
+    onSubmit(formData);
   };
+
+  if (!isOpen) return null;
+
+  // Determine what image to show in preview area
+  // Priority: New Preview > Existing URL > Placeholder
+  const activeImageDisplay = previewUrl || existingImageUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-lg border border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] animate-in slide-in-from-bottom-4">
+      <div className="bg-white w-full max-w-lg border border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] animate-in slide-in-from-bottom-4 max-h-[90vh] overflow-y-auto">
         
-        <div className="px-8 py-6 border-b border-[#e0e0e0] flex justify-between items-center bg-black text-white">
-          <h3 className="font-bold text-lg uppercase tracking-widest">New Product</h3>
+        <div className="px-8 py-6 border-b border-[#e0e0e0] flex justify-between items-center bg-black text-white sticky top-0 z-10">
+          <h3 className="font-bold text-lg uppercase tracking-widest">
+            {initialData ? "Edit Product" : "New Product"}
+          </h3>
           <button onClick={onClose} className="hover:rotate-90 transition-transform"><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div className="grid grid-cols-2 gap-6">
+             {/* Left Column: Text Inputs */}
              <div className="col-span-2 md:col-span-1 space-y-4">
-                {/* ... Inputs for Name, Price, Stock ... */}
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider mb-2">Name</label>
                     <input className="w-full border border-[#ccc] p-3 text-sm focus:outline-none focus:border-black rounded-none" 
@@ -50,13 +103,15 @@ export default function ProductModal({ isOpen, onClose, onSubmit }) {
                 </div>
              </div>
 
-             {/* Right Column: Image Preview with Error Handling */}
+             {/* Right Column: Image Upload Preview */}
              <div className="col-span-2 md:col-span-1">
-                <label className="block text-xs font-bold uppercase tracking-wider mb-2">Image Preview</label>
-                <div className="w-full h-40 bg-[#f5f5f5] border border-[#e0e0e0] flex items-center justify-center overflow-hidden relative">
-                    {form.imageUrl && !imageError ? (
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2">Image</label>
+                
+                {/* Preview Box */}
+                <div className="w-full h-40 bg-[#f5f5f5] border border-[#e0e0e0] flex items-center justify-center overflow-hidden relative mb-3">
+                    {activeImageDisplay && !imageError ? (
                         <img 
-                            src={form.imageUrl} 
+                            src={activeImageDisplay} 
                             alt="Preview" 
                             className="w-full h-full object-cover" 
                             onError={() => setImageError(true)}
@@ -68,8 +123,19 @@ export default function ProductModal({ isOpen, onClose, onSubmit }) {
                         </div>
                     )}
                 </div>
-                <input className="w-full border border-t-0 border-[#ccc] p-2 text-xs focus:outline-none focus:border-black rounded-none" 
-                    placeholder="Paste Image URL here..." value={form.imageUrl} onChange={e => setForm({...form, imageUrl: e.target.value})} />
+                
+                {/* File Input Button styling */}
+                <label className="cursor-pointer flex items-center justify-center gap-2 w-full bg-black text-white py-3 text-xs font-bold uppercase tracking-widest hover:bg-[#333] transition-colors rounded-none">
+                    <Upload size={16} /> 
+                    {selectedFile ? "Change File" : "Upload Image"}
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleFileChange}
+                        className="hidden" 
+                    />
+                </label>
+                {selectedFile && <p className="text-[10px] mt-1 text-gray-500 truncate">{selectedFile.name}</p>}
              </div>
           </div>
 
@@ -80,7 +146,7 @@ export default function ProductModal({ isOpen, onClose, onSubmit }) {
           </div>
 
           <button className="w-full bg-[#E60033] text-white py-4 font-bold uppercase tracking-widest hover:bg-[#cc002d] transition-colors rounded-none">
-            Add to Inventory
+            {initialData ? "Save Changes" : "Add to Inventory"}
           </button>
         </form>
       </div>

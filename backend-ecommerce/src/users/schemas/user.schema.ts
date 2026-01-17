@@ -15,7 +15,9 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  // 👇 THIS PART IS CRITICAL 👇
+  @Prop({ default: 'user' })
+  role: string;
+
   @Prop({ 
     type: [{ 
       productId: { type: Types.ObjectId, ref: 'Product' }, 

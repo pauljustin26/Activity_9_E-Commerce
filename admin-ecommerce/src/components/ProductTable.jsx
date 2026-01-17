@@ -1,6 +1,6 @@
 import { Trash2, Edit } from "lucide-react";
 
-export default function ProductTable({ products, onDelete }) {
+export default function ProductTable({ products, onDelete, onEdit }) { // <--- Added onEdit prop
   return (
     <div className="border border-[#e0e0e0] bg-white">
       <table className="w-full text-left border-collapse">
@@ -26,7 +26,13 @@ export default function ProductTable({ products, onDelete }) {
                 </span>
               </td>
               <td className="px-6 py-4 border-b border-[#e0e0e0] text-right space-x-4">
-                <button className="text-[#999] hover:text-[#1a1a1a] transition-colors"><Edit size={16} /></button>
+                {/* Connect onEdit here */}
+                <button 
+                    onClick={() => onEdit(p)} 
+                    className="text-[#999] hover:text-[#1a1a1a] transition-colors"
+                >
+                    <Edit size={16} />
+                </button>
                 <button onClick={() => onDelete(p._id)} className="text-[#999] hover:text-[#E60033] transition-colors"><Trash2 size={16} /></button>
               </td>
             </tr>
