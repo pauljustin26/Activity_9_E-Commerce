@@ -65,4 +65,8 @@ export class OrdersService {
   async findAll() {
     return this.orderModel.find().sort({ createdAt: -1 }).exec(); // Newest first
   }
+
+  async findUserOrders(customerName: string) {
+    return this.orderModel.find({ customerName }).sort({ createdAt: -1 }).exec();
+  }
 }

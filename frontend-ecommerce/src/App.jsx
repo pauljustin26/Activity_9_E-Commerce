@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { getProducts, createOrder, getCart, syncCart } from "./services/api";
+import { getProducts, createOrder, getCart, syncCart, getMyOrders } from "./services/api";
 import Navbar from "./components/Navbar";
 import ProductCard from "./components/ProductCard";
 import CartDrawer from "./components/CartDrawer"; 
 import SuccessModal from "./components/SuccessModal";
 import AuthModal from "./components/AuthModal";
 import CheckoutModal from "./components/CheckoutModal";
+import OrderHistoryModal from "./components/OrderHistoryModal";
 import { ArrowRight } from "lucide-react";
 
 export default function App() {
@@ -25,7 +26,8 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
+  const [myOrders, setMyOrders] = useState([]);
+  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
   // ------------------------------------------------------------------
   // 1. INITIALIZATION
   // ------------------------------------------------------------------
@@ -170,6 +172,18 @@ export default function App() {
     getProducts().then(setProducts);
   };
 
+  // Handler to open orders
+  const handleOpenOrders = async () => {
+    if (!user) return;
+    try {
+        const data = await getMyOrders();
+        setMyOrders(data);
+        setIsOrderHistoryOpen(true);
+    } catch (err) {
+        console.error("Failed to load orders", err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans text-[#1a1a1a]">
       
@@ -180,6 +194,7 @@ export default function App() {
         onLogout={handleLogout}
         onLogin={() => setIsAuthOpen(true)}
         onSearch={setSearchTerm}
+        onOpenOrders={handleOpenOrders}
       />
       
       {/* 1. COLLECTION SECTION (Top) */}
@@ -261,6 +276,13 @@ export default function App() {
         updateQuantity={updateQuantity} 
         checkout={initiateCheckout} 
       />
+
+      <OrderHistoryModal 
+        isOpen={isOrderHistoryOpen}
+        onClose={() => setIsOrderHistoryOpen(false)}
+        orders={myOrders}
+      />
+      
       <AuthModal 
         isOpen={isAuthOpen} 
         onClose={() => setIsAuthOpen(false)} 

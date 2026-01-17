@@ -77,3 +77,11 @@ export const syncCart = async (cartItems) => {
     body: JSON.stringify({ items: payload }),
   });
 };
+
+export const getMyOrders = async () => {
+  const res = await fetch(`${API_URL}/orders/mine`, {
+    headers: getHeaders(), // Must send token to identify the user
+  });
+  if (!res.ok) throw new Error("Failed to fetch your orders");
+  return res.json();
+};
