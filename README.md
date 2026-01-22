@@ -1,7 +1,3 @@
-Here is a comprehensive README.md file for your project. It includes an overview of the system, the technology stack, setup instructions, and the requested folder directory structure.
-
-Markdown
-
 # Activity 9: E-Commerce System
 
 This project is a full-stack e-commerce application consisting of three main components: a customer-facing frontend, an admin dashboard, and a robust backend API.
